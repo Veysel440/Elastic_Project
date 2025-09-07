@@ -1,34 +1,40 @@
-import ky from "ky";
-const api = ky.create({
+import ky, { HTTPError } from "ky";
+
+const baseHeaders: Record<string,string> = { "Content-Type":"application/json" };
+const API_KEY = import.meta.env.VITE_API_KEY as string | undefined;
+if (API_KEY) baseHeaders["X-API-Key"] = API_KEY;
+
+export const api = ky.create({
     prefixUrl: import.meta.env.VITE_API_BASE,
-    headers: { "X-API-Key": import.meta.env.VITE_API_KEY, "Content-Type":"application/json" },
+    headers: baseHeaders,
 });
 
+export async function safe<T>(p: Promise<T>): Promise<T> {
+    try { return await p; }
+    catch (e) {
+        if (e instanceof HTTPError) {
+            const body = await e.response.text();
+            throw new Error(`HTTP ${e.response.status} ${e.response.statusText} — ${body}`);
+        }
+        throw e;
+    }
+}
+
 export type LatLon = { lat:number; lon:number };
-export type WithinResp = { items: StoreItem[]; count: number };
-export type HeatTile = { key:number; doc_count:number; centroid?:{ lat:number; lon:number } };
-export type HeatResp = { tiles: HeatTile[] };
 export type StoreItem = { id:string; name?:string|null; loc:{lat:number;lon:number} };
 export type StoreDoc = StoreItem & { service_area?: { type:"polygon"; coordinates:number[][][] } };
 
 export const createStore = (name:string, loc:LatLon) =>
-    api.post("stores", { json: { name, lat:loc.lat, lon:loc.lon } }).json<{id:string}>();
-
+    safe(api.post("stores", { json: { name, lat:loc.lat, lon:loc.lon } }).json<{id:string}>());
 export const setArea = (id:string, coordinates:number[][]) =>
-    api.post(`stores/${id}/area`, { json: { coordinates } }).json();
-
+    safe(api.post(`stores/${id}/area`, { json: { coordinates } }).json());
 export const nearest = (lat:number, lon:number, radius_km=5, limit=3) =>
-    api.get(`stores/near`, { searchParams:{ lat, lon, radius_km, limit }}).json<{items:any[]}>();
-
+    safe(api.get(`stores/near`, { searchParams:{ lat, lon, radius_km, limit }}).json<{items:any[]}>());
 export const eligible = (lat:number, lon:number) =>
-    api.get(`delivery/eligible`, { searchParams:{ lat, lon }}).json<{eligible:boolean;stores:any[]}>();
-
+    safe(api.get(`delivery/eligible`, { searchParams:{ lat, lon }}).json<{eligible:boolean;stores:any[]}>());
 export const within = (bbox:{min_lat:number;min_lon:number;max_lat:number;max_lon:number;limit?:number}) =>
-    api.get(`stores/within`, { searchParams:bbox as any }).json<WithinResp>();
-
+    safe(api.get(`stores/within`, { searchParams:bbox as any }).json<{items:any[];count:number}>());
 export const heat = (z=7) =>
-    api.get(`stores/heat`, { searchParams:{ z }}).json<HeatResp>();
-
-
+    safe(api.get(`stores/heat`, { searchParams:{ z }}).json<{tiles:any[]}>());
 export const getStore = (id:string) =>
-    api.get(`stores/${id}`).json<StoreDoc>();
+    safe(api.get(`stores/${id}`).json<any>());

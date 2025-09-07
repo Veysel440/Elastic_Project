@@ -12,7 +12,6 @@ final class EsInit extends Command
 
     public function handle(Client $es): int
     {
-        // "index exists" durumunda 400'ü yoksay
         $es->indices()->create([
             'index' => 'stores',
             'body'  => [

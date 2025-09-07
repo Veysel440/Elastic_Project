@@ -126,14 +126,18 @@ export default function MapPage() {
         map.setLayoutProperty("heatmap", "visibility", showHeat ? "visible" : "none");
     }
 
-    // Mağaza ekleme yardımcıları
     async function addStoreAt(lon: number, lat: number) {
-        const name = storeName.trim() || `Şube ${nameSeq}`;
-        const res = await createStore(name, { lat, lon });
-        setLastId(res.id);
-        setNameSeq(n => n + 1);
-        new maplibregl.Marker().setLngLat([lon, lat]).addTo(mapRef.current!);
-        await refreshWithin(); await refreshHeat();
+        try {
+            const name = storeName.trim() || `Şube ${nameSeq}`;
+            const res = await createStore(name, { lat, lon });
+            setLastId(res.id);
+            setNameSeq(n => n + 1);
+            new maplibregl.Marker().setLngLat([lon, lat]).addTo(mapRef.current!);
+            await refreshWithin(); await refreshHeat();
+        } catch (err:any) {
+            alert("Mağaza eklenemedi: " + (err?.message || err));
+            console.error(err);
+        }
     }
     async function addStoreAtCenter() {
         const c = mapRef.current?.getCenter(); if (!c) return;
